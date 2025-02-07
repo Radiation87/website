@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make Appointment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h2>Make an Appointment</h2>
+    <form action="/appointment" method="POST">
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required>
+
+        <label for="time">Time:</label>
+        <select id="time" name="time" required>
+            <option value="08:00">08:00</option>
+            <option value="09:00">09:00</option>
+            <option value="10:00">10:00</option>
+            <option value="11:00">11:00</option>
+            <option value="12:00">12:00</option>
+            <option value="13:00">13:00</option>
+            <option value="14:00">14:00</option>
+            <option value="15:00">15:00</option>
+            <option value="16:00">16:00</option>
+        </select>
+
+        <button type="submit">Book Appointment</button>
+    </form>
+
+    <script>
+        // Set the minimum date to tomorrow
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        document.getElementById('date').setAttribute('min', minDate);
+
+        // Restrict year input to 4 digits
+        document.getElementById('date').addEventListener('input', function () {
+            let inputValue = this.value;
+            let yearPart = inputValue.split('-')[0];
+
+            if (yearPart.length > 4) {
+                this.value = inputValue.slice(0, 4) + inputValue.slice(5);
+            }
+        });
+    </script>
+</body>
+</html>
