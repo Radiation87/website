@@ -1,12 +1,11 @@
 import sqlite3
 import subprocess
 import os
-from flask import Flask, request, redirect, render_template, g, session
+from flask import Flask, request, redirect, render_template, g, session, flash, url_for
 from datetime import date, datetime
 
 # Check if the database file exists
 if not os.path.exists('dentist.db'):
-    # Run the database setup script if the file doesn't exist
     subprocess.run(["python", "setup_db.py"], check=True)
 
 app = Flask(__name__)
@@ -49,48 +48,71 @@ def login():
         else:
             return redirect('/appointment') 
     else:
-        return "Invalid username or password!", 401
+        flash("Invalid username or password!", "danger")
+        return redirect(url_for('index'))
 
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        email = request.form["email"]
+        phone = request.form["phone"]
+        role = request.form["role"]
+
+        db = get_db()
+        cursor = db.cursor()
+
+        try:
+            cursor.execute(
+                "INSERT INTO users (username, password, role, email, phone) VALUES (?, ?, ?, ?, ?)",
+                (username, password, role, email, phone),
+            )
+            db.commit()
+            flash("Account created successfully! You can now log in.", "success")
+            return redirect(url_for("index"))
+        except sqlite3.IntegrityError:
+            flash("Username already exists. Please choose another one.", "danger")
+        finally:
+            db.close()
+
+    return render_template("signUp.html")
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
 
-
 @app.route('/appointment', methods=['GET', 'POST'])
 def appointment():
     if request.method == 'POST':
         if 'user_id' not in session:
             return redirect('/')
-        
+
         user_id = session['user_id']
         selected_date = request.form['date']
         time = request.form['time']
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Convert the selected date to a date object
         selected_date_obj = datetime.strptime(selected_date, "%Y-%m-%d").date()
         today = date.today()
 
-        # Check if the selected date is today or in the past
         if selected_date_obj <= today:
-            return "Appointments must be made at least one day in advance. Please choose a future date.", 400
+            flash("Appointments must be made at least one day in advance.", "danger")
+            return redirect(url_for('appointment'))
 
         db = get_db()
         cursor = db.cursor()
-
-        # Check if the time slot on the selected date is already taken
         cursor.execute("SELECT id FROM appointments WHERE date = ? AND time = ?", (selected_date, time))
         existing_appointment = cursor.fetchone()
 
         if existing_appointment:
-            return "This time slot is already booked. Please choose another time.", 400  # Error message
+            flash("This time slot is already booked. Please choose another time.", "danger")
         else:
             cursor.execute("INSERT INTO appointments (user_id, date, time, created_at) VALUES (?, ?, ?, ?)", 
                            (user_id, selected_date, time, created_at))
             db.commit()
-            return "Appointment made successfully!"  # Success message
+            flash("Appointment made successfully!", "success")
 
     return render_template('appointment.html')
 
@@ -103,10 +125,8 @@ def future_appointments():
     db = get_db()
     cursor = db.cursor()
     
-    # Get today's date in YYYY-MM-DD format
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # Fetch future appointments (date >= today)
     cursor.execute("""
         SELECT users.username, appointments.date, appointments.time
         FROM appointments 
@@ -118,16 +138,13 @@ def future_appointments():
     appointments = cursor.fetchall()
     return render_template('futureAppointments.html', appointments=appointments)
 
-
 @app.route('/pastAppointments.html')
 def past_appointments():
     db = get_db()
     cursor = db.cursor()
     
-    # Get today's date in YYYY-MM-DD format
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # Fetch past appointments (date < today)
     cursor.execute("""
         SELECT users.username, appointments.date, appointments.time
         FROM appointments 
