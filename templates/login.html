@@ -10,7 +10,7 @@
     <h1>Prestige Dental Care & Orthodontics</h1>
     
     <h2>Log In</h2>
-    <form action="/login" method="POST">
+    <form id="loginForm">
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" maxlength="99" required>
 
@@ -20,6 +20,32 @@
         <button type="submit">Log In</button>
     </form>
 
+    <p id="error-message" style="color: red; display: none;"></p>
+
     <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", function(event) {
+            event.preventDefault(); // Stop the form from submitting normally
+
+            let formData = new FormData(this);
+
+            fetch("/login", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect; // Redirect on success
+                } else {
+                    let errorMessage = document.getElementById("error-message");
+                    errorMessage.textContent = data.message;
+                    errorMessage.style.display = "block"; // Show the error message
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    </script>
 </body>
 </html>

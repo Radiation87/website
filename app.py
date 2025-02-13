@@ -1,7 +1,7 @@
 import sqlite3
 import subprocess
 import os
-from flask import Flask, request, redirect, render_template, g, session, flash, url_for
+from flask import Flask, request, redirect, render_template, g, session, flash, url_for, jsonify
 from datetime import date, datetime
 
 # Check if the database file exists
@@ -29,8 +29,11 @@ def close_connection(exception):
 def index():
     return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+
     username = request.form['username']
     password = request.form['password']
 
@@ -44,39 +47,39 @@ def login():
         session['username'] = username
         session['role'] = user["role"]
         if user["role"] == 'admin':
-            return redirect('/adminIndex.html')
+            return jsonify({"success": True, "redirect": "/adminIndex.html"})
         else:
-            return redirect('/appointment') 
+            return jsonify({"success": True, "redirect": "/appointment"})
     else:
-        flash("Invalid username or password!", "danger")
-        return redirect(url_for('index'))
+        return jsonify({"success": False, "message": "Invalid username or password!"})
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        email = request.form["email"]
-        phone = request.form["phone"]
-        role = request.form["role"]
+    if request.method == 'GET':
+        return render_template('signup.html')
 
-        db = get_db()
-        cursor = db.cursor()
+    username = request.form['username']
+    password = request.form['password']
+    email = request.form['email']
+    phone = request.form['phone']
+    role = request.form['role']
 
-        try:
-            cursor.execute(
-                "INSERT INTO users (username, password, role, email, phone) VALUES (?, ?, ?, ?, ?)",
-                (username, password, role, email, phone),
-            )
-            db.commit()
-            flash("Account created successfully! You can now log in.", "success")
-            return redirect(url_for("index"))
-        except sqlite3.IntegrityError:
-            flash("Username already exists. Please choose another one.", "danger")
-        finally:
-            db.close()
+    db = get_db()
+    cursor = db.cursor()
 
-    return render_template("signUp.html")
+    # Check if the username already exists
+    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+    existing_user = cursor.fetchone()
+
+    if existing_user:
+        return jsonify({"success": False, "message": "Username already exists! Choose a different one."})
+
+    # Insert new user into database
+    cursor.execute("INSERT INTO users (username, password, role, email, phone) VALUES (?, ?, ?, ?, ?)",
+                   (username, password, role, email, phone))
+    db.commit()
+
+    return jsonify({"success": True, "redirect": "/"})  # Redirect to login after successful signup
 
 @app.route('/logout')
 def logout():
